@@ -74,10 +74,22 @@ namespace webpp {
 
 		public:
 			virtual ~Connection() {}
-			explicit Connection(const std::shared_ptr<socket_type> &socket) : super(0), socket(socket), strand(socket->get_io_service()), closed(false) { }
+			explicit Connection(const std::shared_ptr<socket_type> &socket) : super(0), socket(socket), strand(
+			#if ASIO_VERSION >= 101400
+				socket->get_executor()
+			#else
+				socket->get_io_service()
+			#endif
+				), closed(false) { }
 
 		private:
-			explicit Connection(socket_type *socket): super(0), socket(socket), strand(socket->get_io_service()), closed(false) { }
+			explicit Connection(socket_type *socket): super(0), socket(socket), strand(
+			#if ASIO_VERSION >= 101400
+				socket->get_executor()
+			#else
+				socket->get_io_service()
+			#endif
+				), closed(false) { }
 
 			class SendData {
 			public:
@@ -361,7 +373,13 @@ namespace webpp {
 		std::shared_ptr<asio::system_timer> get_timeout_timer(const std::shared_ptr<Connection> &connection, size_t seconds) {
 			if (seconds == 0)
 				return nullptr;
-			auto timer = std::make_shared<asio::system_timer>(connection->socket->get_io_service());
+			auto timer = std::make_shared<asio::system_timer>(
+			#if ASIO_VERSION >= 101400
+				connection->socket->get_executor()
+			#else
+				connection->socket->get_io_service()
+			#endif
+			);
 			timer->expires_at(std::chrono::system_clock::now() + std::chrono::seconds(static_cast<long>(seconds)));
 			timer->async_wait([connection](const std::error_code& ec){
 				if(!ec) {
@@ -652,7 +670,13 @@ namespace webpp {
 
 		void timer_idle_init(const std::shared_ptr<Connection> &connection) {
 			if(config.timeout_idle>0) {
-				connection->timer_idle= std::make_unique<asio::system_timer>(connection->socket->get_io_service());
+				connection->timer_idle= std::make_unique<asio::system_timer>(
+				#if ASIO_VERSION >= 101400
+					connection->socket->get_executor()
+				#else
+					connection->socket->get_io_service()
+				#endif
+				);
 				connection->timer_idle->expires_from_now(std::chrono::seconds(static_cast<unsigned long>(config.timeout_idle)));
 				timer_idle_expired_function(connection);
 			}
